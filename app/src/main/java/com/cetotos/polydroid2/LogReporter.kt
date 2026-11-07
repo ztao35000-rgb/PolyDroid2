@@ -47,7 +47,22 @@ object LogReporter {
     }
 
     fun defaultClient(ctx: Context): Client =
-        if (RootFs.isPolytoria2(ctx)) Client.GODOT else Client.UNITY
+        lastRunClient(ctx) ?: if (RootFs.isPolytoria2(ctx)) Client.GODOT else Client.UNITY
+
+    private fun lastRunClient(ctx: Context): Client? {
+        var launched = false
+        try {
+            for (f in Box64Launcher.sessionLogFiles(ctx)) {
+                f.useLines { lines ->
+                    for (line in lines) {
+                        if (line.startsWith("Launching:")) launched = true
+                        else if (line.trim() == "POLYDROID_POLYTORIA2=1") return Client.GODOT
+                    }
+                }
+            }
+        } catch (_: Exception) { return null }
+        return if (launched) Client.UNITY else null
+    }
 
     fun promptAndSend(
         ctx: Context,
@@ -182,7 +197,6 @@ object LogReporter {
             appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
             appendLine("ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
             appendLine("RAM: ${mem.totalMem / (1024 * 1024)} MB")
-            appendLine("Vulkan driver: ${SettingsActivity.getVulkanDriver(ctx)}")
             appendLine("Safe mode: ${SettingsActivity.isSafeMode(ctx)}")
             if (note.isNotBlank()) appendLine("Note: $note")
         }

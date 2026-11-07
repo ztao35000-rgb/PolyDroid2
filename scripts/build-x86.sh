@@ -31,3 +31,6 @@ build ctype_fix.c              "$X86_OUT/libctype_fix.so"
 build godot_ctype_fix.c        "$X86_OUT/libgodot_ctype_patch.so"
 build pthread_recursive_fix.c  "$X86_OUT/libpthread_recursive_fix.so"
 build machine_id.c             "$X86_OUT/libmachine_id.so"
+
+echo "[shim] curl_stub.c -> libcurl.so.4  (soname libcurl.so.4)"
+gcc $CFLAGS -o "$X86_OUT/libcurl.so.4" "$CPP/curl_stub.c" -Wl,-soname,libcurl.so.4 -Wl,--version-script,"$CPP/curl_stub.map"

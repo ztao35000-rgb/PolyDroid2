@@ -68,10 +68,6 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_STATS_ORDER = "stats_order"
         const val KEY_STATS_RAM_UNIT = "stats_ram_unit"
         const val KEY_FULLSCREEN = "fullscreen"
-        const val KEY_VULKAN_DRIVER = "vulkan_driver"
-        const val VULKAN_DRIVER_AUTO = "auto"
-        const val VULKAN_DRIVER_SYSTEM = "system"
-        const val VULKAN_DRIVER_TURNIP = "turnip"
         const val KEY_MAX_FPS = "max_fps"
 
         const val KEY_POLY_QUALITY_LEVEL = "poly_quality_level"
@@ -91,7 +87,6 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_HAPTIC = "haptic_enabled"
         const val KEY_OVERHEAT_PROTECTION = "overheat_protection"
         const val KEY_RENDER_THREAD = "render_thread"
-        const val KEY_FAST_MEMORY = "fast_memory"
 
         fun isSafeMode(ctx: Context): Boolean =
             ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(KEY_SAFE_MODE, false)
@@ -108,8 +103,6 @@ class SettingsActivity : AppCompatActivity() {
         fun isRenderThreadEnabled(ctx: Context): Boolean =
             ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(KEY_RENDER_THREAD, true)
 
-        fun isFastMemoryEnabled(ctx: Context): Boolean =
-            ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(KEY_FAST_MEMORY, false)
         const val DEFAULT_RESOLUTION = 720
         const val DEFAULT_SENSITIVITY = 3f
 
@@ -318,11 +311,6 @@ class SettingsActivity : AppCompatActivity() {
         fun getFullscreen(ctx: Context): Boolean {
             val prefs = ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             return prefs.getBoolean(KEY_FULLSCREEN, true)
-        }
-
-        fun getVulkanDriver(ctx: Context): String {
-            val prefs = ctx.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            return prefs.getString(KEY_VULKAN_DRIVER, VULKAN_DRIVER_SYSTEM) ?: VULKAN_DRIVER_SYSTEM
         }
 
         fun getMaxFps(ctx: Context): Int {
@@ -623,40 +611,6 @@ class SettingsActivity : AppCompatActivity() {
 
         content.addView(displayCard, cardParams(first = true))
 
-        val (graphicsCard, graphics) = section("Graphics")
-
-        val driverOptions = listOf(
-            VULKAN_DRIVER_AUTO to "Auto",
-            VULKAN_DRIVER_SYSTEM to "System driver (Universal, faster)",
-            VULKAN_DRIVER_TURNIP to "Turnip (Adreno only, slower)",
-        )
-        val driverDropdown = AutoCompleteTextView(this).apply {
-            inputType = InputType.TYPE_NULL
-            setAdapter(ArrayAdapter(
-                this@SettingsActivity,
-                android.R.layout.simple_dropdown_item_1line,
-                driverOptions.map { it.second }
-            ))
-        }
-        val driverLayout = TextInputLayout(
-            this, null,
-            com.google.android.material.R.attr.textInputOutlinedExposedDropdownMenuStyle
-        ).apply {
-            hint = "Vulkan driver"
-            endIconMode = TextInputLayout.END_ICON_DROPDOWN_MENU
-            addView(driverDropdown)
-        }
-        graphics.addView(driverLayout, layoutParams().apply { topMargin = dp(16) })
-
-        val currentDriver = prefs.getString(KEY_VULKAN_DRIVER, VULKAN_DRIVER_SYSTEM) ?: VULKAN_DRIVER_SYSTEM
-        val driverIndex = driverOptions.indexOfFirst { it.first == currentDriver }
-        if (driverIndex >= 0) driverDropdown.setText(driverOptions[driverIndex].second, false)
-        driverDropdown.setOnItemClickListener { _, _, position, _ ->
-            prefs.edit().putString(KEY_VULKAN_DRIVER, driverOptions[position].first).apply()
-        }
-
-        content.addView(graphicsCard, cardParams())
-
         val (perfCard, perf) = section("Performance")
 
         val fpsOptions = listOf(
@@ -708,13 +662,6 @@ class SettingsActivity : AppCompatActivity() {
             prefs.getBoolean(KEY_RENDER_THREAD, true)
         ) { checked -> prefs.edit().putBoolean(KEY_RENDER_THREAD, checked).apply() }
         perf.addView(renderThreadRow, layoutParams().apply { topMargin = dp(20) })
-
-        val (fastMemoryRow, _) = switchRow(
-            "Faster CPU emulation",
-            "Uses fewer memory barriers in Box64. Faster in CPU heavy games but it might cause crashes. 2.0 only and disabled in safe mode.",
-            prefs.getBoolean(KEY_FAST_MEMORY, false)
-        ) { checked -> prefs.edit().putBoolean(KEY_FAST_MEMORY, checked).apply() }
-        perf.addView(fastMemoryRow, layoutParams().apply { topMargin = dp(20) })
 
         content.addView(perfCard, cardParams())
 

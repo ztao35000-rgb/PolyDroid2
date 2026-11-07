@@ -179,8 +179,6 @@ object Box64Launcher {
             put("XKB_CONFIG_ROOT", "$rootPath/usr/share/X11/xkb")
             put("XKB_CONFIG_EXTRA_PATH", "$rootPath/usr/share/X11/xkb")
             put("LD_LIBRARY_PATH", "$rootPath/usr/lib/arm64-native:$nativeDir:/system/lib64")
-            put("VK_ICD_FILENAMES", "$rootPath/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json")
-            put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
             put("BOX64_LD_LIBRARY_PATH",
                 "$rootPath/polytoria:" +
                 "$rootPath/polytoria/dotnet:" +
@@ -219,7 +217,7 @@ object Box64Launcher {
             put("BOX64_DYNAREC", "1")
             if (isPolytoria2) {
                 put("BOX64_DYNAREC_BIGBLOCK", if (safeMode) "0" else if (lowEnd) "1" else "2")
-                put("BOX64_DYNAREC_STRONGMEM", if (safeMode) "2" else if (SettingsActivity.isFastMemoryEnabled(ctx)) "0" else "1")
+                put("BOX64_DYNAREC_STRONGMEM", if (safeMode) "2" else "1")
                 put("BOX64_DYNAREC_WEAKBARRIER", if (safeMode) "0" else "1")
                 put("BOX64_DYNAREC_FASTNAN", if (safeMode) "0" else "1")
                 put("BOX64_DYNAREC_FASTROUND", if (safeMode) "0" else "1")
@@ -260,14 +258,6 @@ object Box64Launcher {
             val ptrFile = java.io.File(ctx.filesDir, "vulkan_surface_ptr")
             if (ptrFile.exists()) {
                 put("POLYDROID_VULKAN_SURFACE_PTR", ptrFile.readText().trim())
-            }
-
-            // vulkan driver preference
-            val vulkanDriver = SettingsActivity.getVulkanDriver(ctx)
-            if (vulkanDriver == SettingsActivity.VULKAN_DRIVER_SYSTEM) {
-                put("POLYDROID_FORCE_SYSTEM_DRIVER", "1")
-            } else if (vulkanDriver == SettingsActivity.VULKAN_DRIVER_TURNIP) {
-                put("POLYDROID_FORCE_TURNIP", "1")
             }
 
             // screen resolution for surface

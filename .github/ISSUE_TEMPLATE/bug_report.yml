@@ -77,14 +77,6 @@ body:
         - Not a crash
     validations:
       required: true
-  - type: dropdown
-    id: vulkan-driver
-    attributes:
-      label: Vulkan driver setting
-      options:
-        - System driver
-        - Turnip
-        - Auto
   - type: input
     id: logs-sent
     attributes:

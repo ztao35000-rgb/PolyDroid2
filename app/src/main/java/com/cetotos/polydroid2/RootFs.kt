@@ -12,12 +12,9 @@ import java.util.zip.GZIPInputStream
 object RootFs {
     private const val TAG = "PolyDroid2"
     private const val VERSION = 8
-    private const val LIBS_VERSION = 12
+    private const val LIBS_VERSION = 13
 
     private val LIB_ASSETS = listOf(
-        "turnip/libvulkan_freedreno.so",
-        "turnip/libc++_shared.so",
-        "turnip/libdrm.so.2",
         "xvfb-bundle.bin",
         "glibc-x86_64/libc.so.6",
         "glibc-x86_64/libpthread.so.0",
@@ -51,6 +48,7 @@ object RootFs {
         "x86_64-libs/libgodot_ctype_patch.so",
         "x86_64-libs/libeaccess_shim.so",
         "x86_64-libs/libmachine_id.so",
+        "x86_64-libs/libcurl.so.4",
         "x86_64-libs/libXrandr.so.2",
         "x86_64-libs/libXi.so.6",
         "x86_64-libs/libXinerama.so.1",
@@ -305,25 +303,10 @@ object RootFs {
 
         val arm64NativeDir = File("$rootPath/usr/lib/arm64-native")
         arm64NativeDir.mkdirs()
-        for (lib in listOf("libvulkan_freedreno.so", "libc++_shared.so", "libdrm.so.2")) {
-            val dest = File(arm64NativeDir, lib)
-            try {
-                copyAssetCounted(ctx, "turnip/$lib", dest, progress)
-            } catch (_: Exception) { }
-            dest.setReadable(true, false)
-            dest.setExecutable(true, false)
-        }
-
-        val icdDir = File("$rootPath/usr/share/vulkan/icd.d")
-        icdDir.mkdirs()
-        File(icdDir, "freedreno_icd.aarch64.json").writeText("""{
-    "file_format_version": "1.0.0",
-    "ICD": {
-        "library_path": "$rootPath/usr/lib/arm64-native/libvulkan_freedreno.so",
-        "api_version": "1.3.0"
-    }
-}
-""")
+        // remove these later
+        File(arm64NativeDir, "libvulkan_freedreno.so").delete()
+        File(arm64NativeDir, "libdrm.so.2").delete()
+        File("$rootPath/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json").delete()
 
         val xvfbMarker = File("$rootPath/usr/bin/Xvfb")
         if (!xvfbMarker.exists()) {
@@ -381,7 +364,6 @@ object RootFs {
                 Log.w(TAG, "glibc asset $lib not found: ${e.message}")
             }
         }
-        File(x86LibDir, "libaudio_trace.so").delete()
         Log.i(TAG, "Deployed x86_64 glibc libs: ${glibcLibs.size} files")
 
         try {
@@ -434,7 +416,7 @@ object RootFs {
             Log.w(TAG, "libX11_stub.so not found in assets: ${e.message}")
         }
 
-        for (so in listOf("libpthread_recursive_fix.so", "libctype_fix.so", "libgodot_ctype_patch.so", "libeaccess_shim.so", "libmachine_id.so", "libXrandr.so.2", "libXi.so.6", "libXinerama.so.1", "libXrender.so.1", "libasound.so.2")) {
+        for (so in listOf("libpthread_recursive_fix.so", "libctype_fix.so", "libgodot_ctype_patch.so", "libeaccess_shim.so", "libmachine_id.so", "libcurl.so.4", "libXrandr.so.2", "libXi.so.6", "libXinerama.so.1", "libXrender.so.1", "libasound.so.2")) {
             try {
                 val dest = File(x86LibDir, so)
                 copyAssetCounted(ctx, "x86_64-libs/$so", dest, progress)

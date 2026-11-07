@@ -122,180 +122,16 @@ static VkInstance g_instance = VK_NULL_HANDLE;
 static ANativeWindow* g_native_window = NULL;
 static int g_window_loaded = 0;
 
-// detect GPU vendor with EGL to decide if Turnip or system driver
-static int detect_adreno_gpu(void) {
-    void* libEGL = dlopen("libEGL.so", RTLD_NOW);
-    void* libGLES = dlopen("libGLESv2.so", RTLD_NOW);
-    if (!libEGL || !libGLES) {
-        if (libEGL) dlclose(libEGL);
-        if (libGLES) dlclose(libGLES);
-        return 0;
-    }
-
-    typedef void* EGLDisplay;
-    typedef void* EGLConfig;
-    typedef void* EGLSurface;
-    typedef void* EGLContext;
-    typedef unsigned int EGLBoolean;
-    typedef int EGLint;
-
-    #define MY_EGL_DEFAULT_DISPLAY ((void*)0)
-    #define MY_EGL_NO_CONTEXT ((EGLContext)0)
-    #define MY_EGL_NO_SURFACE ((EGLSurface)0)
-    #define MY_EGL_NO_DISPLAY ((EGLDisplay)0)
-    #define MY_EGL_RENDERABLE_TYPE 0x3040
-    #define MY_EGL_OPENGL_ES2_BIT 0x0004
-    #define MY_EGL_SURFACE_TYPE 0x3033
-    #define MY_EGL_PBUFFER_BIT 0x0001
-    #define MY_EGL_NONE 0x3038
-    #define MY_EGL_WIDTH 0x3057
-    #define MY_EGL_HEIGHT 0x3056
-    #define MY_EGL_CONTEXT_CLIENT_VERSION 0x3098
-    #define MY_GL_RENDERER 0x1F01
-
-    typedef EGLDisplay (*PFN_eglGetDisplay)(void*);
-    typedef EGLBoolean (*PFN_eglInitialize)(EGLDisplay, EGLint*, EGLint*);
-    typedef EGLBoolean (*PFN_eglChooseConfig)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*);
-    typedef EGLSurface (*PFN_eglCreatePbufferSurface)(EGLDisplay, EGLConfig, const EGLint*);
-    typedef EGLContext (*PFN_eglCreateContext)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
-    typedef EGLBoolean (*PFN_eglMakeCurrent)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
-    typedef EGLBoolean (*PFN_eglDestroyContext)(EGLDisplay, EGLContext);
-    typedef EGLBoolean (*PFN_eglDestroySurface)(EGLDisplay, EGLSurface);
-    typedef EGLBoolean (*PFN_eglTerminate)(EGLDisplay);
-    typedef const unsigned char* (*PFN_glGetString)(unsigned int);
-
-    PFN_eglGetDisplay pfn_eglGetDisplay = (PFN_eglGetDisplay)dlsym(libEGL, "eglGetDisplay");
-    PFN_eglInitialize pfn_eglInitialize = (PFN_eglInitialize)dlsym(libEGL, "eglInitialize");
-    PFN_eglChooseConfig pfn_eglChooseConfig = (PFN_eglChooseConfig)dlsym(libEGL, "eglChooseConfig");
-    PFN_eglCreatePbufferSurface pfn_eglCreatePbufferSurface = (PFN_eglCreatePbufferSurface)dlsym(libEGL, "eglCreatePbufferSurface");
-    PFN_eglCreateContext pfn_eglCreateContext = (PFN_eglCreateContext)dlsym(libEGL, "eglCreateContext");
-    PFN_eglMakeCurrent pfn_eglMakeCurrent = (PFN_eglMakeCurrent)dlsym(libEGL, "eglMakeCurrent");
-    PFN_eglDestroyContext pfn_eglDestroyContext = (PFN_eglDestroyContext)dlsym(libEGL, "eglDestroyContext");
-    PFN_eglDestroySurface pfn_eglDestroySurface = (PFN_eglDestroySurface)dlsym(libEGL, "eglDestroySurface");
-    PFN_eglTerminate pfn_eglTerminate = (PFN_eglTerminate)dlsym(libEGL, "eglTerminate");
-    PFN_glGetString pfn_glGetString = (PFN_glGetString)dlsym(libGLES, "glGetString");
-
-    if (!pfn_eglGetDisplay || !pfn_eglInitialize || !pfn_eglChooseConfig ||
-        !pfn_eglCreatePbufferSurface || !pfn_eglCreateContext || !pfn_eglMakeCurrent ||
-        !pfn_glGetString) {
-        LOGI("shim: EGL symbols not available, assuming non-Adreno");
-        dlclose(libEGL); dlclose(libGLES);
-        return 0;
-    }
-
-    int result = 0;
-    EGLDisplay display = pfn_eglGetDisplay(MY_EGL_DEFAULT_DISPLAY);
-    if (display == MY_EGL_NO_DISPLAY) { dlclose(libEGL); dlclose(libGLES); return 0; }
-
-    EGLint major, minor;
-    if (!pfn_eglInitialize(display, &major, &minor)) { dlclose(libEGL); dlclose(libGLES); return 0; }
-
-    EGLint configAttribs[] = { MY_EGL_RENDERABLE_TYPE, MY_EGL_OPENGL_ES2_BIT,
-                               MY_EGL_SURFACE_TYPE, MY_EGL_PBUFFER_BIT, MY_EGL_NONE };
-    EGLConfig config;
-    EGLint numConfigs;
-    if (!pfn_eglChooseConfig(display, configAttribs, &config, 1, &numConfigs) || numConfigs == 0) {
-        if (pfn_eglTerminate) pfn_eglTerminate(display);
-        dlclose(libEGL); dlclose(libGLES);
-        return 0;
-    }
-
-    EGLint pbufAttribs[] = { MY_EGL_WIDTH, 1, MY_EGL_HEIGHT, 1, MY_EGL_NONE };
-    EGLSurface surface = pfn_eglCreatePbufferSurface(display, config, pbufAttribs);
-    if (surface == MY_EGL_NO_SURFACE) {
-        if (pfn_eglTerminate) pfn_eglTerminate(display);
-        dlclose(libEGL); dlclose(libGLES);
-        return 0;
-    }
-
-    EGLint ctxAttribs[] = { MY_EGL_CONTEXT_CLIENT_VERSION, 2, MY_EGL_NONE };
-    EGLContext context = pfn_eglCreateContext(display, config, MY_EGL_NO_CONTEXT, ctxAttribs);
-    if (context == MY_EGL_NO_CONTEXT) {
-        if (pfn_eglDestroySurface) pfn_eglDestroySurface(display, surface);
-        if (pfn_eglTerminate) pfn_eglTerminate(display);
-        dlclose(libEGL); dlclose(libGLES);
-        return 0;
-    }
-
-    pfn_eglMakeCurrent(display, surface, surface, context);
-    const char* renderer = (const char*)pfn_glGetString(MY_GL_RENDERER);
-    if (renderer) {
-        LOGI("shim: GL_RENDERER = %s", renderer);
-        const char* r = renderer;
-        while (*r) {
-            if ((r[0] == 'A' || r[0] == 'a') &&
-                (r[1] == 'D' || r[1] == 'd') &&
-                (r[2] == 'R' || r[2] == 'r') &&
-                (r[3] == 'E' || r[3] == 'e') &&
-                (r[4] == 'N' || r[4] == 'n') &&
-                (r[5] == 'O' || r[5] == 'o')) {
-                result = 1;
-                break;
-            }
-            r++;
-        }
-    }
-
-    pfn_eglMakeCurrent(display, MY_EGL_NO_SURFACE, MY_EGL_NO_SURFACE, MY_EGL_NO_CONTEXT);
-    if (pfn_eglDestroyContext) pfn_eglDestroyContext(display, context);
-    if (pfn_eglDestroySurface) pfn_eglDestroySurface(display, surface);
-    if (pfn_eglTerminate) pfn_eglTerminate(display);
-    dlclose(libEGL);
-    dlclose(libGLES);
-
-    LOGI("shim: GPU vendor: %s", result ? "Adreno (will use Turnip)" : "non-Adreno (will use system Vulkan)");
-    return result;
-}
-
 static void load_real_vulkan(void) {
     if (g_real_vulkan) return;
 
-    const char* force_system = getenv("POLYDROID_FORCE_SYSTEM_DRIVER");
-    const char* force_turnip = getenv("POLYDROID_FORCE_TURNIP");
-
-    int use_turnip;
-    if (force_system && force_system[0] == '1') {
-        LOGI("shim: forced to system driver by setting");
-        use_turnip = 0;
-    } else if (force_turnip && force_turnip[0] == '1') {
-        LOGI("shim: forced to Turnip by setting");
-        use_turnip = 1;
+    g_real_vulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+    if (g_real_vulkan) {
+        g_using_system_driver = 1;
+        LOGI("shim: system Vulkan driver loaded");
     } else {
-        use_turnip = detect_adreno_gpu();
-    }
-
-    if (use_turnip) {
-        const char* rootdir = getenv("POLYDROID_ROOTDIR");
-        if (!rootdir) {
-            LOGE("POLYDROID_ROOTDIR not set");
-            return;
-        }
-
-        char path[512];
-        snprintf(path, sizeof(path), "%s/usr/lib/arm64-native/libc++_shared.so", rootdir);
-        dlopen(path, RTLD_NOW | RTLD_GLOBAL);
-        snprintf(path, sizeof(path), "%s/usr/lib/arm64-native/libdrm.so.2", rootdir);
-        dlopen(path, RTLD_NOW | RTLD_GLOBAL);
-
-        snprintf(path, sizeof(path), "%s/usr/lib/arm64-native/libvulkan_freedreno.so", rootdir);
-        LOGI("shim: loading Turnip from %s", path);
-        g_real_vulkan = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-        if (g_real_vulkan) {
-            LOGI("shim: Turnip loaded");
-        } else {
-            LOGI("shim: Turnip load failed: %s, falling back to system Vulkan", dlerror());
-        }
-    }
-
-    if (!g_real_vulkan) {
-        g_real_vulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-        if (g_real_vulkan) {
-            g_using_system_driver = 1;
-            LOGI("shim: system Vulkan driver loaded");
-        } else {
-            LOGE("shim: system Vulkan driver load failed: %s", dlerror());
-            return;
-        }
+        LOGE("shim: system Vulkan driver load failed: %s", dlerror());
+        return;
     }
 
     real_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)
@@ -873,6 +709,22 @@ static int g_present_fence_exportable = 0;
 static int g_present_fence_pending_export[SHIM_MAX_SWAPCHAIN_IMAGES] = {0};
 static VkPhysicalDevice g_physical_device = VK_NULL_HANDLE;
 static VkQueue g_queue = VK_NULL_HANDLE;
+static pthread_mutex_t g_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static PFN_vkQueueSubmit_t real_app_queueSubmit = NULL;
+
+static VkResult queue_submit_locked(VkQueue queue, uint32_t count, const VkSubmitInfo* submits, VkFence fence) {
+    pthread_mutex_lock(&g_queue_mutex);
+    VkResult r = pfn_queueSubmit(queue, count, submits, fence);
+    pthread_mutex_unlock(&g_queue_mutex);
+    return r;
+}
+
+static VkResult shim_vkQueueSubmit(VkQueue queue, uint32_t count, const VkSubmitInfo* submits, VkFence fence) {
+    pthread_mutex_lock(&g_queue_mutex);
+    VkResult r = real_app_queueSubmit(queue, count, submits, fence);
+    pthread_mutex_unlock(&g_queue_mutex);
+    return r;
+}
 
 static void resolve_device_funcs(VkDevice device) {
     if (pfn_createImage) return;
@@ -1753,7 +1605,9 @@ static void shim_vkDestroySwapchainKHR(
          g_pending_image_count, g_swapchain_image_count);
 
     if (pfn_deviceWaitIdle) {
+        pthread_mutex_lock(&g_queue_mutex);
         pfn_deviceWaitIdle(device);
+        pthread_mutex_unlock(&g_queue_mutex);
     }
 
     for (uint32_t i = 0; i < SHIM_MAX_SWAPCHAIN_IMAGES; i++) {
@@ -1830,7 +1684,7 @@ static VkResult shim_vkAcquireNextImageKHR(
             .signalSemaphoreCount = semaphore ? 1 : 0,
             .pSignalSemaphores = semaphore ? &semaphore : NULL,
         };
-        pfn_queueSubmit(g_queue, 1, &submit, fence);
+        queue_submit_locked(g_queue, 1, &submit, fence);
     }
 
     return VK_SUCCESS;
@@ -1888,7 +1742,7 @@ static VkResult shim_vkQueuePresentKHR(
                 .signalSemaphoreCount = doSignalExport ? 1 : 0,
                 .pSignalSemaphores = doSignalExport ? &exportSem : NULL,
             };
-            pfn_queueSubmit(queue, 1, &submit, presentFence);
+            queue_submit_locked(queue, 1, &submit, presentFence);
         } else if (pPresentInfo->waitSemaphoreCount > 0 && pfn_queueSubmit) {
             static const VkPipelineStageFlags waitStages[8] = {
                 VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -1906,14 +1760,14 @@ static VkResult shim_vkQueuePresentKHR(
                 .signalSemaphoreCount = doSignalExport ? 1 : 0,
                 .pSignalSemaphores = doSignalExport ? &exportSem : NULL,
             };
-            pfn_queueSubmit(queue, 1, &submit, presentFence);
+            queue_submit_locked(queue, 1, &submit, presentFence);
         } else if (presentFence || doSignalExport) {
             VkSubmitInfo empty = {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                 .signalSemaphoreCount = doSignalExport ? 1 : 0,
                 .pSignalSemaphores = doSignalExport ? &exportSem : NULL,
             };
-            if (pfn_queueSubmit) pfn_queueSubmit(queue, 1, &empty, presentFence);
+            if (pfn_queueSubmit) queue_submit_locked(queue, 1, &empty, presentFence);
         }
 
         int acquireFd = -1;
@@ -2285,6 +2139,10 @@ static PFN_vkVoidFunction shim_vkGetDeviceProcAddr(VkDevice device, const char* 
     }
     if (!real_vkGetDeviceProcAddr)
         return NULL;
+    if (strcmp(pName, "vkQueueSubmit") == 0) {
+        real_app_queueSubmit = (PFN_vkQueueSubmit_t)real_vkGetDeviceProcAddr(device, pName);
+        return real_app_queueSubmit ? (PFN_vkVoidFunction)shim_vkQueueSubmit : NULL;
+    }
     if (strcmp(pName, "vkCreateGraphicsPipelines") == 0) {
         real_createGraphicsPipelines = (PFN_vkCreateGraphicsPipelines_t)
             real_vkGetDeviceProcAddr(device, pName);
@@ -2352,6 +2210,10 @@ PFN_vkVoidFunction vkGetInstanceProcAddr(VkInstance instance, const char* pName)
 
     if (!real_vkGetInstanceProcAddr)
         return NULL;
+    if (strcmp(pName, "vkQueueSubmit") == 0) {
+        real_app_queueSubmit = (PFN_vkQueueSubmit_t)real_vkGetInstanceProcAddr(instance, pName);
+        return real_app_queueSubmit ? (PFN_vkVoidFunction)shim_vkQueueSubmit : NULL;
+    }
     if (strcmp(pName, "vkCreateGraphicsPipelines") == 0) {
         real_createGraphicsPipelines = (PFN_vkCreateGraphicsPipelines_t)
             real_vkGetInstanceProcAddr(instance, pName);
