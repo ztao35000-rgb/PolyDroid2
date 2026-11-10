@@ -58,8 +58,8 @@ object Box64Launcher {
         val rootPath = root.absolutePath
         val nativeDir = ctx.applicationInfo.nativeLibraryDir
 
-        val polytoria = File(root, "polytoria/Polytoria Client.x86_64")
-        require(polytoria.exists()) { "Polytoria binary not found at ${polytoria.absolutePath}" }
+        val polytoria = File(root, "polytoria/usr/bin/LuduvoGame")
+        require(polytoria.exists()) { "LuduvoGame binary not found at ${polytoria.absolutePath}" }
         val box64 = File(nativeDir, "libbox64.so")
         require(box64.exists()) { "Box64 binary not found at ${box64.absolutePath}" }
         File("$rootPath/usr/lib/arm64-native/libvulkan.so.1").delete()
@@ -100,7 +100,7 @@ object Box64Launcher {
             }
         }
         val hostsBuilder = StringBuilder("127.0.0.1 localhost\n")
-        for (hostname in listOf("api.polytoria.com", "polytoria.com")) {
+        for (hostname in listOf("api.luduvo.com", "luduvo.com", "assets.luduvo.com")) {
             try {
                 val addrs = java.net.InetAddress.getAllByName(hostname)
                 val v4 = addrs.firstOrNull { it is java.net.Inet4Address }
@@ -122,7 +122,7 @@ object Box64Launcher {
         )
         Log.i(TAG, "resolv.conf DNS: ${dnsServers.joinToString(", ")}")
         File(etcDir, "ld.so.conf").writeText(
-            "/usr/lib/x86_64-linux-gnu\n/polytoria\n"
+            "/usr/lib/x86_64-linux-gnu\n/polytoria\n/polytoria/usr/lib\n"
         )
 
         val sslDir = File("$rootPath/etc/ssl/certs")
@@ -180,8 +180,8 @@ object Box64Launcher {
             put("XKB_CONFIG_EXTRA_PATH", "$rootPath/usr/share/X11/xkb")
             put("LD_LIBRARY_PATH", "$rootPath/usr/lib/arm64-native:$nativeDir:/system/lib64")
             put("BOX64_LD_LIBRARY_PATH",
+                "$rootPath/polytoria/usr/lib:" +
                 "$rootPath/polytoria:" +
-                "$rootPath/polytoria/dotnet:" +
                 "$rootPath/usr/lib/x86_64-linux-gnu:" +
                 "$rootPath/usr/lib")
             put("BOX64_EMULATED_LIBS",
@@ -315,6 +315,10 @@ object Box64Launcher {
             if (!lowMem) put("DOTNET_GCRegionRange", "%x".format(gcHeapLimit * 8))
             put("DOTNET_DebugWriteToStdErr", "1")
             put("DOTNET_EnableDiagnostics", "1")
+            put("QT_PLUGIN_PATH", "$rootPath/polytoria/usr/plugins")
+            put("QT_QPA_PLATFORM", "xcb")
+            put("QT_XCB_GL_INTEGRATION", "none")
+            put("XDG_RUNTIME_DIR", "$rootPath/tmp")
             put("SDL_VIDEODRIVER", "x11")
             put("DISPLAY", ":0")
             put("XMODIFIERS", "@im=none")
@@ -342,11 +346,7 @@ object Box64Launcher {
             "export $k=\"$v\""
         }
 
-        val engineArgs = if (isPolytoria2)
-            "--rendering-driver vulkan --rendering-method mobile --audio-driver ALSA --no-crash-reports"
-        else
-            "-force-vulkan -fullscreen"
-        val box64Cmd = "\"$nativeDir/libbox64.so\" \"$rootPath/polytoria/Polytoria Client.x86_64\" $engineArgs$gameArgStr"
+        val box64Cmd = "\"$nativeDir/libbox64.so\" \"$rootPath/polytoria/usr/bin/LuduvoGame\"$gameArgStr"
         val execLine = if (execPrefix.isNotBlank())
             "${execPrefix}/system/bin/true >/dev/null 2>&1 && exec $execPrefix$box64Cmd\nexec $box64Cmd"
         else

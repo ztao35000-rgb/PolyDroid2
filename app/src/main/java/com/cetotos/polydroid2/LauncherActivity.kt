@@ -17,7 +17,7 @@ class LauncherActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "PolyDroid2"
-        private const val POLYTORIA_URL = "https://polytoria.com/home"
+        private const val POLYTORIA_URL = "https://luduvo.com"
     }
 
     private var extractionInProgress = false

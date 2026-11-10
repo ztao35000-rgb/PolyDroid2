@@ -116,7 +116,7 @@ class GameActivity : AppCompatActivity() {
 
         val execArgs = intent.getStringExtra("exec_args") ?: ""
         val fullArgs = if (execArgs.isNotEmpty()) {
-            "$execArgs -screen-fullscreen 1 -screen-width $renderWidth -screen-height $renderHeight" // it seems making it fullscreen wil almost 4x your fps. i dont know how it increases it that much but it works.
+            execArgs // it seems making it fullscreen wil almost 4x your fps. i dont know how it increases it that much but it works.
         } else {
             ""
         }
@@ -284,7 +284,7 @@ class GameActivity : AppCompatActivity() {
             return
         }
 
-        appendLog("Polytoria Client launching...")
+        appendLog("Luduvo launching...")
         if (fullArgs.isNotEmpty()) {
             appendLog("Launch args recieved: $fullArgs")
         }
@@ -445,7 +445,7 @@ class GameActivity : AppCompatActivity() {
         exitDialogShown = true
         MaterialAlertDialogBuilder(this)
             .setTitle("Exit game?")
-            .setMessage("This closes the Polytoria client and returns to the app.")
+            .setMessage("This closes the Luduvo client and returns to the app.")
             .setPositiveButton("Exit") { _, _ -> finish() }
             .setNegativeButton("Cancel", null)
             .setOnDismissListener { exitDialogShown = false }
@@ -489,7 +489,7 @@ class GameActivity : AppCompatActivity() {
         ).apply { topMargin = dp(8) })
 
         val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle("Polytoria has crashed!")
+            .setTitle("Luduvo has crashed!")
             .setView(content)
             .setCancelable(false)
             .create()
@@ -568,7 +568,7 @@ class GameActivity : AppCompatActivity() {
         }
 
         val msg = TextView(this).apply {
-            text = "Your device is too hot. Polytoria has exited in order to stop damage to device. Please cool down your device before playing."
+            text = "Your device is too hot. Luduvo has exited in order to stop damage to device. Please cool down your device before playing."
             setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
         }
         content.addView(msg, LinearLayout.LayoutParams(

@@ -30,36 +30,28 @@ class LoginActivity : AppCompatActivity() {
 
     private fun handlePolytoriaIntent(intent: Intent): Boolean {
         val uri = intent.data ?: return false
-        if (uri.scheme != "polytoria") return false
+        if (uri.scheme != "luduvo") return false
         handlePolytoriaUri(uri)
         return true
     }
 
+    // luduvo://<token>/<host>/<port>[/<server_pubkey_hex>] is passed straight to LuduvoGame
     private fun handlePolytoriaUri(uri: Uri) {
-        val segments = mutableListOf<String>()
-        uri.host?.let { segments.add(it) }
-        uri.pathSegments?.let { segments.addAll(it) }
+        val raw = uri.toString()
+        val segments = raw.substringAfter("://").substringBefore('?').substringBefore('#')
+            .split('/').filter { it.isNotBlank() }
 
-        if (segments.size < 2) {
-            Log.e(TAG, "Invalid URL! $uri")
+        if (segments.isEmpty()) {
+            Log.e(TAG, "Invalid URL!")
             finish()
             return
         }
+        Log.i(TAG, "luduvo link, first segment=${segments[0].take(8)}..., parts=${segments.size}")
 
-        val type = segments[0]
-        val token = segments[1]
-        val map = if (segments.size > 2) segments[2] else null
-
-        Log.i(TAG, "Type=$type, token=${token.take(8)}..., map=$map")
-
-        val execArgs = if (type == "test") {
-            "-solo ${map ?: ""}"
-        } else {
-            "-network client -token $token -no-focus-pause"
-        }
-
-        val channel = ClientDownloader.Channel.fromDeepLinkType(type)
-        prepareClientThenLaunch(token, channel, execArgs)
+        // single-quote for the guest sh script, strip anything that could break out
+        val safe = raw.filter { it.isLetterOrDigit() || it in ":/._-?=&%+~@" }
+        val execArgs = "'$safe'"
+        prepareClientThenLaunch(segments[0], ClientDownloader.Channel.STABLE, execArgs)
     }
 
     private fun prepareClientThenLaunch(token: String, channel: ClientDownloader.Channel, execArgs: String) {

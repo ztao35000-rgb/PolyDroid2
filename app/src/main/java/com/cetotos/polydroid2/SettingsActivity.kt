@@ -690,7 +690,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         val textCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val title = TextView(this).apply {
-            text = "Polytoria ${channel.label}"
+            text = "Luduvo ${channel.label}"
             setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
         }
         val status = TextView(this).apply {

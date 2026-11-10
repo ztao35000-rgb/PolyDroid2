@@ -230,7 +230,7 @@ object RootFs {
                 }
             }
         }
-        val polyBinary = File(root, "polytoria/Polytoria Client.x86_64")
+        val polyBinary = File(root, "polytoria/usr/bin/LuduvoGame")
         if (polyBinary.exists()) polyBinary.setExecutable(true, false)
         root.resolve("usr/bin").listFiles()?.forEach { it.setExecutable(true, false) }
         root.resolve("usr/sbin").listFiles()?.forEach { it.setExecutable(true, false) }

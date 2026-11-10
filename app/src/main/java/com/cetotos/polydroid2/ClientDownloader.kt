@@ -22,16 +22,16 @@ import java.util.zip.ZipInputStream
 object ClientDownloader {
     private const val TAG = "PolyDroid2"
     private const val LAUNCHER_VERSION = "4.13.0"
-    private const val UA = "PolytoriaLauncher/$LAUNCHER_VERSION"
-    private const val UPDATES_URL = "https://api.polytoria.com/v1/launcher/updates"
-    private const val BINARY = "Polytoria Client.x86_64"
+    private const val UA = "LuduvoAndroid/$LAUNCHER_VERSION"
+    private const val UPDATES_URL = "https://assets.luduvo.com/channels"
+    private const val BINARY = "usr/bin/LuduvoGame"
     private const val MARKER = ".pd_client_version"
     private const val SEGMENTS = 6
 
     // 2.0 still uses "beta" internally
     enum class Channel(val api: String, val label: String) {
-        STABLE("stable", "1.0"),
-        BETA("beta", "2.0");
+        STABLE("stable", "Stable"),
+        BETA("beta", "Beta");
 
         companion object {
             fun fromDeepLinkType(type: String): Channel =
@@ -39,7 +39,7 @@ object ClientDownloader {
         }
     }
 
-    data class ClientInfo(val version: String, val downloadUrl: String)
+    data class ClientInfo(val version: String, val downloadUrl: String, val sha256: String)
 
     private val http by lazy {
         OkHttpClient.Builder()
@@ -77,12 +77,10 @@ object ClientDownloader {
         val installed = installedVersion(ctx, channel)
 
         var info: ClientInfo? = null
-        if (token.isNotBlank()) {
-            try {
-                info = fetchInfo(token, channel)
-            } catch (e: Exception) {
-                Log.w(TAG, "client info fetch failed: ${e.message}")
-            }
+        try {
+            info = fetchInfo(channel)
+        } catch (e: Exception) {
+            Log.w(TAG, "client info fetch failed: ${e.message}")
         }
         if (info == null || info.version == installed) {
             if (installed != null) {
@@ -106,6 +104,10 @@ object ClientDownloader {
             onProgress(92, "Installing ${channel.label} client…")
             if (dir.exists()) dir.deleteRecursively()
             dir.mkdirs()
+            if (info.sha256.isNotEmpty()) {
+                val got = sha256Of(tmp)
+                if (!got.equals(info.sha256, ignoreCase = true)) throw IOException("bundle sha256 mismatch ($got)")
+            }
             extractArchive(tmp, dir, info.downloadUrl)
             finalizeClient(dir)
             File(dir, MARKER).writeText(info.version)
@@ -118,28 +120,35 @@ object ClientDownloader {
         activate(ctx, resolveClientRoot(dir))
     }
 
-    private fun fetchInfo(token: String, channel: Channel): ClientInfo? {
-        val url = "$UPDATES_URL?os=linux&release=${channel.api}"
+    private fun sha256Of(f: File): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        f.inputStream().use { i ->
+            val buf = ByteArray(1 shl 16)
+            while (true) { val n = i.read(buf); if (n < 0) break; md.update(buf, 0, n) }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    // channel file: line 1 "LDV1", line 2 signature, line 3 base64(JSON manifest)
+    private fun fetchInfo(channel: Channel): ClientInfo? {
+        val url = "$UPDATES_URL/${channel.api}/linux-x86_64.txt"
         val req = Request.Builder().url(url)
             .header("User-Agent", UA)
-            .header("Accept", "application/json")
-            .header("Authorization", token)
             .build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) {
-                Log.w(TAG, "updates HTTP ${resp.code}")
+                Log.w(TAG, "channel manifest HTTP ${resp.code}")
                 return null
             }
-            val json = JSONObject(resp.body?.string() ?: return null)
-            if (json.optBoolean("Maintenance")) {
-                Log.w(TAG, "launcher API under maintenance")
-                return null
-            }
-            val client = json.optJSONObject("Client") ?: return null
-            val dl = client.optString("Download", "")
-            val ver = client.optString("Version", "")
+            val text = resp.body?.string() ?: return null
+            val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            val payload = lines.lastOrNull() ?: return null
+            val json = JSONObject(String(android.util.Base64.decode(payload, android.util.Base64.DEFAULT), Charsets.UTF_8))
+            val ver = json.optString("version", "")
+            val bundle = json.optJSONObject("platforms")?.optJSONObject("linux-x86_64")?.optJSONObject("bundle") ?: return null
+            val dl = bundle.optString("url", "")
             if (dl.isEmpty() || ver.isEmpty()) return null
-            return ClientInfo(ver, dl)
+            return ClientInfo(ver, dl, bundle.optString("sha256", ""))
         }
     }
 
@@ -313,15 +322,18 @@ object ClientDownloader {
         }
     }
 
-    // the binary might be under a subfolder, find the binary directly
+    // the bundle root is the folder containing usr/bin/LuduvoGame; it might sit in a subfolder
     private fun resolveClientRoot(dir: File): File {
         if (File(dir, BINARY).exists()) return dir
-        return dir.walkTopDown().firstOrNull { it.isFile && it.name == BINARY }?.parentFile ?: dir
+        val name = File(BINARY).name
+        val f = dir.walkTopDown().firstOrNull { it.isFile && it.name == name } ?: return dir
+        return f.parentFile?.parentFile?.parentFile ?: dir
     }
 
     private fun finalizeClient(dir: File) {
         val root = resolveClientRoot(dir)
         File(root, BINARY).setExecutable(true, false)
+        File(root, "usr/bin").listFiles()?.forEach { it.setReadable(true, false); it.setExecutable(true, false) }
         root.walkTopDown().filter { it.isFile && it.name.contains(".so") }.forEach {
             it.setReadable(true, false)
             it.setExecutable(true, false)
