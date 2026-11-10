@@ -30,7 +30,7 @@ android {
     compileSdk { version = release(36) }
 
     defaultConfig {
-        applicationId = "com.cetotos.polydroid2"
+        applicationId = "com.luduvo.droid"
         minSdk = 29
         targetSdk = 36
         versionCode = 8

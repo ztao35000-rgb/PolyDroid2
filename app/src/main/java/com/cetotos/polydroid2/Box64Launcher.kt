@@ -328,6 +328,7 @@ object Box64Launcher {
             put("SDL_VIDEO_X11_VISUALID", "0x21")
             put("SDL_VIDEO_X11_XRANDR", "0")
             put("SDL_LOG_PRIORITY", "critical")
+            put("SDL_LOGGING", "*=info")
         }
         val gameArgStr = if (gameArgs.isNotBlank()) " $gameArgs" else ""
 
