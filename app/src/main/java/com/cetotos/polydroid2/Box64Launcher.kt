@@ -321,6 +321,7 @@ object Box64Launcher {
             put("QT_XCB_GL_INTEGRATION", "none")
             put("XDG_RUNTIME_DIR", "$rootPath/tmp")
             put("SDL_VIDEODRIVER", "x11")
+            put("SDL_AUDIODRIVER", "dummy")  // SDL audio probing (pulse/jack/alsa/sndio stubs) crashes under box64
             put("DISPLAY", ":0")
             put("XMODIFIERS", "@im=none")
             put("GTK_IM_MODULE", "")
