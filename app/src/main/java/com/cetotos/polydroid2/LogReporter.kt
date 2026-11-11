@@ -42,8 +42,8 @@ object LogReporter {
     }
 
     enum class Client(val label: String, val channel: ClientDownloader.Channel, val logName: String) {
-        GODOT("Polytoria 2.0", ClientDownloader.Channel.BETA, "godot.log"),
-        UNITY("Polytoria 1.0", ClientDownloader.Channel.STABLE, "player.log");
+        GODOT("Luduvo (beta)", ClientDownloader.Channel.BETA, "godot.log"),
+        UNITY("Luduvo", ClientDownloader.Channel.STABLE, "player.log");
     }
 
     fun defaultClient(ctx: Context): Client =

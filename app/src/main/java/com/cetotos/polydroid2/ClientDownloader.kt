@@ -24,6 +24,8 @@ object ClientDownloader {
     private const val LAUNCHER_VERSION = "4.13.0"
     private const val UA = "LuduvoAndroid/$LAUNCHER_VERSION"
     private const val UPDATES_URL = "https://assets.luduvo.com/channels"
+    // direct download of the full Luduvo client (launcher + bundle)
+    private const val DOWNLOAD_URL = "https://assets.luduvo.com/download/Luduvo-linux-x86_64.tar.xz"
     private const val BINARY = "usr/bin/LuduvoGame"
     private const val MARKER = ".pd_client_version"
     private const val SEGMENTS = 6
@@ -145,10 +147,9 @@ object ClientDownloader {
             val payload = lines.lastOrNull() ?: return null
             val json = JSONObject(String(android.util.Base64.decode(payload, android.util.Base64.DEFAULT), Charsets.UTF_8))
             val ver = json.optString("version", "")
-            val bundle = json.optJSONObject("platforms")?.optJSONObject("linux-x86_64")?.optJSONObject("bundle") ?: return null
-            val dl = bundle.optString("url", "")
-            if (dl.isEmpty() || ver.isEmpty()) return null
-            return ClientInfo(ver, dl, bundle.optString("sha256", ""))
+            if (ver.isEmpty()) return null
+            // manifest is only used for the version number; the files always come from DOWNLOAD_URL
+            return ClientInfo(ver, DOWNLOAD_URL, "")
         }
     }
 
@@ -301,18 +302,31 @@ object ClientDownloader {
     }
 
     private fun extractTarXz(archive: File, destDir: File) {
+        val destCanon = destDir.canonicalPath + File.separator
         archive.inputStream().use { raw ->
             BufferedInputStream(raw, 65536).use { buffered ->
                 XZInputStream(buffered).use { xz ->
                     TarArchiveInputStream(xz).use { tar ->
                         var entry = tar.nextEntry
                         while (entry != null) {
-                            val out = File(destDir, entry.name)
-                            if (entry.isDirectory) {
+                            val te = entry as org.apache.commons.compress.archivers.tar.TarArchiveEntry
+                            val out = File(destDir, te.name)
+                            if (!out.canonicalPath.startsWith(destCanon) && out.canonicalPath + File.separator != destCanon) {
+                                throw IOException("bad tar entry ${te.name}")
+                            }
+                            if (te.isDirectory) {
                                 out.mkdirs()
+                            } else if (te.isSymbolicLink) {
+                                out.parentFile?.mkdirs()
+                                if (out.exists() || Files.isSymbolicLink(out.toPath())) out.delete()
+                                android.system.Os.symlink(te.linkName, out.absolutePath)
+                            } else if (te.isLink) {
+                                out.parentFile?.mkdirs()
+                                File(destDir, te.linkName).copyTo(out, overwrite = true)
                             } else {
                                 out.parentFile?.mkdirs()
                                 out.outputStream().use { o -> tar.copyTo(o) }
+                                if (te.mode and 0x49 != 0) out.setExecutable(true, false)
                             }
                             entry = tar.nextEntry
                         }
