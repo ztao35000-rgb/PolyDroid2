@@ -213,7 +213,7 @@ object Box64Launcher {
             put("BOX64_LOG", "1") // level 2 will give WAY too much do not use it the Player.log ends up being GIGABYTES big
             put("BOX64_SHOWSEGV", "1")
             put("BOX64_SHOWBT", "1")
-            put("BOX64_DLSYM_ERROR", "0")   // reduces log spam from missing symbols
+            put("BOX64_DLSYM_ERROR", "1")   // TEMP: log which dlsym fails (SDL x11 not available)
             put("BOX64_CRASHHANDLER", "1")
             put("BOX64_DYNAREC", "1")
             if (isPolytoria2) {
