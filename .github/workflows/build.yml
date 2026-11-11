@@ -29,6 +29,15 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build libx11-dev
 
+      - name: Add Xrm functions to libX11 stub (SDL3 needs them)
+        run: |
+          sudo apt-get install -y patchelf
+          cd app/src/main/assets/x86_64-libs
+          gcc -O2 -fPIC -shared -o libXrm_stub.so.6 ../../cpp/xrm_extra.c -Wl,-soname,libXrm_stub.so.6
+          patchelf --add-needed libXrm_stub.so.6 libX11_stub.so
+          readelf -d libX11_stub.so | grep -E "NEEDED|SONAME"
+          nm -D --defined-only libXrm_stub.so.6
+
       - name: Build Box64
         run: |
           NDK="$ANDROID_SDK_ROOT/ndk/29.0.14206865"

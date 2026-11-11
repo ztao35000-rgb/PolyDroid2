@@ -12,7 +12,7 @@ import java.util.zip.GZIPInputStream
 object RootFs {
     private const val TAG = "PolyDroid2"
     private const val VERSION = 8
-    private const val LIBS_VERSION = 14
+    private const val LIBS_VERSION = 15
 
     private val LIB_ASSETS = listOf(
         "xvfb-bundle.bin",
@@ -43,6 +43,7 @@ object RootFs {
         "x86_64-libs/libdns_resolver.so",
         "x86_64-libs/libunity_crash_fix.so",
         "x86_64-libs/libX11_stub.so",
+        "x86_64-libs/libXrm_stub.so.6",
         "x86_64-libs/libpthread_recursive_fix.so",
         "x86_64-libs/libctype_fix.so",
         "x86_64-libs/libgodot_ctype_patch.so",
@@ -417,7 +418,7 @@ object RootFs {
             Log.w(TAG, "libX11_stub.so not found in assets: ${e.message}")
         }
 
-        for (so in listOf("libpthread_recursive_fix.so", "libctype_fix.so", "libgodot_ctype_patch.so", "libeaccess_shim.so", "libmachine_id.so", "libsem_shim.so", "libcurl.so.4", "libXrandr.so.2", "libXi.so.6", "libXinerama.so.1", "libXrender.so.1", "libasound.so.2")) {
+        for (so in listOf("libpthread_recursive_fix.so", "libctype_fix.so", "libgodot_ctype_patch.so", "libeaccess_shim.so", "libmachine_id.so", "libsem_shim.so", "libcurl.so.4", "libXrandr.so.2", "libXi.so.6", "libXinerama.so.1", "libXrender.so.1", "libasound.so.2", "libXrm_stub.so.6")) {
             try {
                 val dest = File(x86LibDir, so)
                 copyAssetCounted(ctx, "x86_64-libs/$so", dest, progress)

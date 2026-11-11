@@ -33,21 +33,5 @@ build pthread_recursive_fix.c  "$X86_OUT/libpthread_recursive_fix.so"
 build machine_id.c             "$X86_OUT/libmachine_id.so"
 build sem_shim.c               "$X86_OUT/libsem_shim.so"
 
-echo "[shim] libX11_stub.c + x11_extra.c + xrm_extra.c -> libX11_stub.so  (soname libX11.so.6)"
-X11NEW="$(mktemp)"
-if gcc $CFLAGS -o "$X11NEW" "$CPP/libX11_stub.c" "$CPP/x11_extra.c" "$CPP/xrm_extra.c" -Wl,-soname,libX11.so.6 $LDFLAGS; then
-  nm -D --defined-only "$X86_OUT/libX11_stub.so" | awk '{print $3}' | sort -u > /tmp/x11_old.txt
-  nm -D --defined-only "$X11NEW" | awk '{print $3}' | sort -u > /tmp/x11_new.txt
-  LOST="$(comm -23 /tmp/x11_old.txt /tmp/x11_new.txt | tr '\n' ' ')"
-  if [[ -z "$LOST" ]] && grep -qx XrmGetResource /tmp/x11_new.txt; then
-    cp "$X11NEW" "$X86_OUT/libX11_stub.so"
-    echo "[shim] libX11_stub.so rebuilt OK ($(wc -l < /tmp/x11_new.txt) exports)"
-  else
-    echo "[shim] WARNING: rebuilt libX11_stub.so lost exports: $LOST - keeping committed one"
-  fi
-else
-  echo "[shim] WARNING: libX11_stub.so rebuild failed - keeping committed one"
-fi
-
 echo "[shim] curl_stub.c -> libcurl.so.4  (soname libcurl.so.4)"
 gcc $CFLAGS -o "$X86_OUT/libcurl.so.4" "$CPP/curl_stub.c" -Wl,-soname,libcurl.so.4 -Wl,--version-script,"$CPP/curl_stub.map"
