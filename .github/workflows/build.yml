@@ -35,6 +35,9 @@ jobs:
           cd app/src/main/assets/x86_64-libs
           gcc -O2 -fPIC -shared -o libXrm_stub.so.6 ../../cpp/xrm_extra.c -Wl,-soname,libXrm_stub.so.6
           patchelf --add-needed libXrm_stub.so.6 libX11_stub.so
+          # stub's own XGetKeyboardMapping returns NULL -> hide it so the Xrm stub's real one is found
+          perl -pi -e 's/XGetKeyboardMapping\0/XGetKeyboardMappinX\0/g' libX11_stub.so
+          strings libX11_stub.so | grep -c 'XGetKeyboardMappinX' || true
           readelf -d libX11_stub.so | grep -E "NEEDED|SONAME"
           nm -D --defined-only libXrm_stub.so.6
 
