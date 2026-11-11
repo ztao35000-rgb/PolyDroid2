@@ -34,7 +34,6 @@ char ** XListFontsWithInfo(Display * _a0, const char * _a1, int _a2, int * _a3, 
 char ** XGetFontPath(Display * _a0, int * _a1) { return 0; }
 Atom * XListProperties(Display * _a0, Window _a1, int * _a2) { return 0; }
 XHostAddress * XListHosts(Display * _a0, int * _a1, int * _a2) { return 0; }
-KeySym * XGetKeyboardMapping(Display * _a0, KeyCode _a1, int _a2, int * _a3) { return 0; }
 KeySym XStringToKeysym(const char * _a0) { return 0; }
 long XMaxRequestSize(Display * _a0) { return 0; }
 long XExtendedMaxRequestSize(Display * _a0) { return 0; }

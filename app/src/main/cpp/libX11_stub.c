@@ -989,6 +989,17 @@ int XDisplayKeycodes(Display* a, int* b, int* c) {
     return 0;
 }
 
+/* SDL3's non-XKB keymap path derefs this result; never return NULL */
+KeySym* XGetKeyboardMapping(Display* a, unsigned char first, int count, int* per) {
+    const int n = 2;
+    if (per) *per = n;
+    if (count < 1) count = 1;
+    KeySym* r = (KeySym*)calloc((size_t)count * n, sizeof(KeySym));
+    if (!r) return NULL;
+    for (int i = 0; i < count; i++) r[i * n] = keycode_to_keysym((unsigned int)first + i);
+    return r;
+}
+
 int XDrawRectangle(Display* a, Drawable b, GC c, int d, int e, unsigned int f, unsigned int g) { return 0; }
 
 char* XDisplayName(const char* a) {
