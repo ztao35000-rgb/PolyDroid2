@@ -322,6 +322,8 @@ object Box64Launcher {
             put("XDG_RUNTIME_DIR", "$rootPath/tmp")
             put("SDL_VIDEODRIVER", "x11")
             put("SDL_AUDIODRIVER", "dummy")  // SDL audio probing (pulse/jack/alsa/sndio stubs) crashes under box64
+            put("ALSOFT_DRIVERS", "null")   // OpenAL Soft backend probing (jack/pulse/alsa stubs) crashes under box64
+            put("ALSOFT_LOGLEVEL", "3")
             put("DISPLAY", ":0")
             put("XMODIFIERS", "@im=none")
             put("GTK_IM_MODULE", "")
