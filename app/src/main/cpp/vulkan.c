@@ -2269,4 +2269,51 @@ VkResult vkEnumerateInstanceLayerProperties(
     return VK_SUCCESS;
 }
 
+
+/* ---- direct exports for core entry points ------------------------------------------------
+ * Unity only used vkGetInstanceProcAddr, but Luduvo (SDL3 GPU) links the core functions by name,
+ * and Box64 prints "function vkXxx not found in lib libvulkan.so.1" for every one this shim does
+ * not export. Forward them through the shim's own vkGetInstanceProcAddr (so hooks still apply),
+ * falling back to the system driver's export. */
+static void *fwd_resolve(const char *name) {
+    load_real_vulkan();
+    void *p = NULL;
+    if (g_instance) p = (void *)vkGetInstanceProcAddr(g_instance, name);
+    if (!p && g_real_vulkan) p = dlsym(g_real_vulkan, name);
+    return p;
+}
+
+#define FWD_R(NAME, PARAMS, ARGS) \
+VkResult NAME PARAMS { \
+    static VkResult (*fn) PARAMS; \
+    if (!fn) fn = (VkResult (*) PARAMS)fwd_resolve(#NAME); \
+    if (!fn) { LOGE("vk forward: %s unresolved", #NAME); return VK_ERROR_INITIALIZATION_FAILED; } \
+    return fn ARGS; \
+}
+#define FWD_V(NAME, PARAMS, ARGS) \
+void NAME PARAMS { \
+    static void (*fn) PARAMS; \
+    if (!fn) fn = (void (*) PARAMS)fwd_resolve(#NAME); \
+    if (!fn) { LOGE("vk forward: %s unresolved", #NAME); return; } \
+    fn ARGS; \
+}
+
+FWD_R(vkEnumeratePhysicalDevices, (VkInstance a, uint32_t *b, VkPhysicalDevice *c), (a, b, c))
+FWD_V(vkGetPhysicalDeviceProperties, (VkPhysicalDevice a, VkPhysicalDeviceProperties *b), (a, b))
+FWD_V(vkGetPhysicalDeviceFeatures2, (VkPhysicalDevice a, VkPhysicalDeviceFeatures2 *b), (a, b))
+FWD_V(vkGetPhysicalDeviceMemoryProperties, (VkPhysicalDevice a, VkPhysicalDeviceMemoryProperties *b), (a, b))
+FWD_V(vkGetPhysicalDeviceFeatures, (VkPhysicalDevice a, VkPhysicalDeviceFeatures *b), (a, b))
+FWD_V(vkGetPhysicalDeviceQueueFamilyProperties, (VkPhysicalDevice a, uint32_t *b, VkQueueFamilyProperties *c), (a, b, c))
+FWD_R(vkGetPhysicalDeviceSurfaceSupportKHR, (VkPhysicalDevice a, uint32_t b, VkSurfaceKHR c, VkBool32 *d), (a, b, c, d))
+FWD_V(vkGetDeviceQueue, (VkDevice a, uint32_t b, uint32_t c, VkQueue *d), (a, b, c, d))
+FWD_V(vkFreeCommandBuffers, (VkDevice a, VkCommandPool b, uint32_t c, const VkCommandBuffer *d), (a, b, c, d))
+FWD_R(vkGetPhysicalDeviceSurfaceCapabilitiesKHR, (VkPhysicalDevice a, VkSurfaceKHR b, VkSurfaceCapabilitiesKHR *c), (a, b, c))
+FWD_R(vkAcquireNextImageKHR, (VkDevice a, VkSwapchainKHR b, uint64_t c, VkSemaphore d, VkFence e, uint32_t *f), (a, b, c, d, e, f))
+FWD_R(vkQueuePresentKHR, (VkQueue a, const VkPresentInfoKHR *b), (a, b))
+FWD_R(vkGetPhysicalDeviceSurfaceFormatsKHR, (VkPhysicalDevice a, VkSurfaceKHR b, uint32_t *c, VkSurfaceFormatKHR *d), (a, b, c, d))
+FWD_R(vkGetPhysicalDeviceSurfacePresentModesKHR, (VkPhysicalDevice a, VkSurfaceKHR b, uint32_t *c, VkPresentModeKHR *d), (a, b, c, d))
+FWD_R(vkGetSwapchainImagesKHR, (VkDevice a, VkSwapchainKHR b, uint32_t *c, VkImage *d), (a, b, c, d))
+FWD_R(vkDeviceWaitIdle, (VkDevice a), (a))
+FWD_R(vkEnumerateDeviceExtensionProperties, (VkPhysicalDevice a, const char *b, uint32_t *c, VkExtensionProperties *d), (a, b, c, d))
+
 // finally done
